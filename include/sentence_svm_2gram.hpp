@@ -1,0 +1,78 @@
+#include <map>
+#include <vector>
+#include <dlib/svm.h>
+#include "word_counter_2gram.hpp"
+
+
+template<typename TWord>
+class SentenceSVM {
+    private:
+        typedef dlib::matrix<double,5,1> sample_type;
+        typedef dlib::radial_basis_kernel<sample_type> kernel_type;
+        typedef dlib::decision_function<kernel_type> dec_funct_type;
+        typedef dlib::normalized_function<dec_funct_type> funct_type;
+        WordCounter2Gram<TWord> counter;
+        funct_type learned_function;
+
+    public:
+        template<typename STIter, typename VType = typename std::iterator_traits<STIter>::value_type,
+            typename = is_input_iterator_t<STIter>,
+            typename = typename std::enable_if<
+                std::is_same<VType, std::pair<std::vector<TWord>,bool>>::value, void>::type>
+        void train(STIter begin, STIter end) 
+        {
+            this->counter.clear();
+            std::vector<sample_type> samples;
+            std::vector<double> labels;
+
+            for(;begin != end;begin++) {
+                auto nv = *begin;
+                auto ft = counter.feature(nv.first.begin(), nv.first.end());
+                int a,b,c;
+                std::tie(a,b,c) = ft;
+
+                sample_type sample;
+                sample(0) = a; sample(1) = b; sample(2) = c;
+                sample(3) = (double)b/a; sample(4) = (double)c/a;
+                samples.push_back(sample);
+                labels.push_back(nv.second ? 1 : -1);
+
+                dlib::vector_normalizer<sample_type> normalizer;
+                normalizer.train(samples);
+                for(size_t i=0;i<samples.size();i++)
+                    samples[i] = normalizer(samples[i]);
+                dlib::randomize_samples(samples, labels);
+
+                dlib::svm_c_trainer<kernel_type> trainer;
+                double m = 0;
+                double ga = 0;
+                double ca = 0;
+                for(double gamma = 0.00001;gamma<=1;gamma *= 5) {
+                    for(double C = 1; C<100000; C *= 5) {
+                        trainer.set_kernel(kernel_type(gamma));
+                        trainer.set_c(C);
+                        auto result = dlib::cross_validate_trainer(trainer, samples, labels, 3);
+                        double mx = 2 * dlib::prod(result) / dlib::sum(result);
+                        if(mx > m) {
+                            ga = gamma;
+                            ca = C;
+                        }
+                        m = mx > m ? mx : m;
+                    }
+                }
+
+                trainer.set_kernel(kernel_type(ga));
+                trainer.set_c(ca);
+
+                this->learned_function.normalizer = normalizer;
+                this->learned_function.function = trainer.train(samples, labels);
+            }
+        }
+
+        template<typename WTIter, typename = is_input_iterator_t<WTIter>>
+        int  predict(WTIter begin, WTIter end);
+
+        bool save(unsigned char* buf, size_t bufsize, size_t& writed);
+        bool load(unsigned char* buf, size_t bufsize, size_t& read);
+};
+
