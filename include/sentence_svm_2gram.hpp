@@ -85,6 +85,17 @@ class SentenceSVM {
             }
         }
 
+        template<typename STIter, typename VType = typename std::iterator_traits<STIter>::value_type,
+            typename = is_input_iterator_t<STIter>,
+            typename = typename std::enable_if<std::is_same<VType, TWord>::value, void>::type>
+        void feed_sentence(STIter begin, STIter end)
+        {
+            for(;begin != end;begin++) {
+                this->counter.eat(*begin);
+            }
+            this->counter.sentenceEnd();
+        }
+
         template<typename WTIter, typename = is_input_iterator_t<WTIter>>
         int  predict(WTIter begin, WTIter end) {
             auto ft = counter.feature(begin, end);
