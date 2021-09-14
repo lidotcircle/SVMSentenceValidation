@@ -7,6 +7,6 @@ CPMAddPackage(
 )
 
 if(dlib_ADDED)
-    add_subdirectory(${dlib_SOURCE_DIR})
+    add_subdirectory(${dlib_SOURCE_DIR} ${dlib_BINARY_DIR})
 endif()
 
