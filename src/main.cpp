@@ -8,6 +8,7 @@ using namespace std;
 int main() {
     WordCounter2Gram<int> counter;
     SentenceSVM<int> svm;
+    svm.train_with_features(std::vector<SentenceSVM<int>::sample_type>(), std::vector<double>());
 
     for(int i=0;i<0xf000;i++) {
         counter.eat(i);

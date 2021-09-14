@@ -42,7 +42,7 @@ class SentenceSVM {
             this->train_with_features(samples, labels);
         }
 
-        void train_with_features(std::vector<sample_type> samples, std::vector<int> labels) 
+        void train_with_features(std::vector<sample_type> samples, std::vector<double> labels) 
         {
             assert(samples.size() == labels.size());
 
