@@ -1,11 +1,13 @@
 #include <iostream>
 #include <assert.h>
 #include "word_counter_2gram.hpp"
+#include "sentence_svm_2gram.hpp"
 #include <dlib/svm.h>
 using namespace std;
 
 int main() {
     WordCounter2Gram<int> counter;
+    SentenceSVM<int> svm;
 
     for(int i=0;i<0xf000;i++) {
         counter.eat(i);

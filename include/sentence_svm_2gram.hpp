@@ -69,10 +69,39 @@ class SentenceSVM {
             }
         }
 
-        template<typename WTIter, typename = is_input_iterator_t<WTIter>>
-        int  predict(WTIter begin, WTIter end);
+        template<typename STIter, typename VType = typename std::iterator_traits<STIter>::value_type,
+            typename = is_input_iterator_t<STIter>,
+            typename = typename std::enable_if<std::is_same<VType, std::vector<TWord>>::value, void>::type>
+        void feed(STIter begin, STIter end)
+        {
+            for(;begin != end;begin++) {
+                auto sentence = *begin;
 
-        bool save(unsigned char* buf, size_t bufsize, size_t& writed);
-        bool load(unsigned char* buf, size_t bufsize, size_t& read);
+                for(auto& word: sentence) {
+                    this->counter.eat(word);
+                }
+
+                this->counter.sentenceEnd();
+            }
+        }
+
+        template<typename WTIter, typename = is_input_iterator_t<WTIter>>
+        int  predict(WTIter begin, WTIter end) {
+            auto ft = counter.feature(begin, end);
+            int a, b, c = a = b = 0;
+            std::tie(a, b, c) = ft;
+            sample_type x;
+            x(0) = a; x(1) = b; x(2) = c;
+            x(3) = (double)b/a; x(4) = (double)c/a;
+
+            return this->learned_function(x);
+        }
+
+        bool save(unsigned char* buf, size_t bufsize, size_t& writed) {
+            return false;
+        };
+        bool load(unsigned char* buf, size_t bufsize, size_t& read) {
+            return false;
+        }
 };
 
