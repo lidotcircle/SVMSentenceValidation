@@ -7,8 +7,10 @@
 
 template<typename TWord>
 class SentenceSVM {
-    private:
+    public:
         typedef dlib::matrix<double,5,1> sample_type;
+
+    private:
         typedef dlib::radial_basis_kernel<sample_type> kernel_type;
         typedef dlib::decision_function<kernel_type> dec_funct_type;
         typedef dlib::normalized_function<dec_funct_type> funct_type;
