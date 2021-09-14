@@ -1,6 +1,7 @@
 #include <map>
 #include <vector>
 #include <dlib/svm.h>
+#include <assert.h>
 #include "word_counter_2gram.hpp"
 
 
@@ -13,6 +14,11 @@ class SentenceSVM {
         typedef dlib::normalized_function<dec_funct_type> funct_type;
         WordCounter2Gram<TWord> counter;
         funct_type learned_function;
+
+        template<typename WTIter, typename = is_input_iterator_t<WTIter>>
+        auto feature1(WTIter begin, WTIter end) {
+            return counter.feature(begin, end);
+        }
 
     public:
         template<typename STIter, typename VType = typename std::iterator_traits<STIter>::value_type,
@@ -27,46 +33,46 @@ class SentenceSVM {
 
             for(;begin != end;begin++) {
                 auto nv = *begin;
-                auto ft = counter.feature(nv.first.begin(), nv.first.end());
-                int a,b,c;
-                std::tie(a,b,c) = ft;
-
-                sample_type sample;
-                sample(0) = a; sample(1) = b; sample(2) = c;
-                sample(3) = (double)b/a; sample(4) = (double)c/a;
-                samples.push_back(sample);
+                samples.push_back(this->feature2(nv.first.begin(), nv.first.end()));
                 labels.push_back(nv.second ? 1 : -1);
-
-                dlib::vector_normalizer<sample_type> normalizer;
-                normalizer.train(samples);
-                for(size_t i=0;i<samples.size();i++)
-                    samples[i] = normalizer(samples[i]);
-                dlib::randomize_samples(samples, labels);
-
-                dlib::svm_c_trainer<kernel_type> trainer;
-                double m = 0;
-                double ga = 0;
-                double ca = 0;
-                for(double gamma = 0.00001;gamma<=1;gamma *= 5) {
-                    for(double C = 1; C<100000; C *= 5) {
-                        trainer.set_kernel(kernel_type(gamma));
-                        trainer.set_c(C);
-                        auto result = dlib::cross_validate_trainer(trainer, samples, labels, 3);
-                        double mx = 2 * dlib::prod(result) / dlib::sum(result);
-                        if(mx > m) {
-                            ga = gamma;
-                            ca = C;
-                        }
-                        m = mx > m ? mx : m;
-                    }
-                }
-
-                trainer.set_kernel(kernel_type(ga));
-                trainer.set_c(ca);
-
-                this->learned_function.normalizer = normalizer;
-                this->learned_function.function = trainer.train(samples, labels);
             }
+
+            this->train_with_features(samples, labels);
+        }
+
+        void train_with_features(std::vector<sample_type> samples, std::vector<int> labels) 
+        {
+            assert(samples.size() == labels.size());
+
+            dlib::vector_normalizer<sample_type> normalizer;
+            normalizer.train(samples);
+            for(size_t i=0;i<samples.size();i++)
+                samples[i] = normalizer(samples[i]);
+            dlib::randomize_samples(samples, labels);
+
+            dlib::svm_c_trainer<kernel_type> trainer;
+            double m = 0;
+            double ga = 0;
+            double ca = 0;
+            for(double gamma = 0.00001;gamma<=1;gamma *= 5) {
+                for(double C = 1; C<100000; C *= 5) {
+                    trainer.set_kernel(kernel_type(gamma));
+                    trainer.set_c(C);
+                    auto result = dlib::cross_validate_trainer(trainer, samples, labels, 3);
+                    double mx = 2 * dlib::prod(result) / dlib::sum(result);
+                    if(mx > m) {
+                        ga = gamma;
+                        ca = C;
+                    }
+                    m = mx > m ? mx : m;
+                }
+            }
+
+            trainer.set_kernel(kernel_type(ga));
+            trainer.set_c(ca);
+
+            this->learned_function.normalizer = normalizer;
+            this->learned_function.function = trainer.train(samples, labels);
         }
 
         template<typename STIter, typename VType = typename std::iterator_traits<STIter>::value_type,
@@ -94,6 +100,18 @@ class SentenceSVM {
                 this->counter.eat(*begin);
             }
             this->counter.sentenceEnd();
+        }
+
+        template<typename WTIter, typename = is_input_iterator_t<WTIter>>
+        auto feature2(WTIter begin, WTIter end) {
+            auto ft = this->feature1(begin, end);
+            int a,b,c;
+            std::tie(a,b,c) = ft;
+
+            sample_type sample;
+            sample(0) = a; sample(1) = b; sample(2) = c;
+            sample(3) = (double)b/a; sample(4) = (double)c/a;
+            return sample;
         }
 
         template<typename WTIter, typename = is_input_iterator_t<WTIter>>
