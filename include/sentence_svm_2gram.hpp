@@ -1,3 +1,6 @@
+#ifndef _SENTENCE_SVM_2GRAM_HPP_
+#define _SENTENCE_SVM_2GRAM_HPP_
+
 #include <map>
 #include <vector>
 #include <dlib/svm.h>
@@ -117,7 +120,7 @@ class SentenceSVM {
         }
 
         template<typename WTIter, typename = is_input_iterator_t<WTIter>>
-        int  predict(WTIter begin, WTIter end) {
+        double  predict(WTIter begin, WTIter end) {
             auto ft = counter.feature(begin, end);
             int a, b, c = a = b = 0;
             std::tie(a, b, c) = ft;
@@ -139,65 +142,61 @@ class SentenceSVM {
                 return true;
             }
 
-            size_t s1 = membuf.str().size();
-            size_t n = sizeof(s1);
-            if (bufsize < n) 
+            size_t s1, n= 0;
+            if (bufsize < n + sizeof(s1))
                 return false;
-            *(size_t*)buf = s1;
-
+            if (!this->counter.save(nullptr, 0, s1))
+                return false;
+            *(size_t*)(buf + n) = s1;
+            n += sizeof(s1);
             if (bufsize < n + s1)
                 return false;
-            memcpy(buf + n, membuf.str().c_str(), s1);
+            bool result = this->counter.save(buf + n, bufsize - n, writed);
             n += s1;
+            assert(writed == s1);
 
-            size_t s2;
+            size_t s2 = membuf.str().size();
+            if (bufsize < n + sizeof(s2)) 
+                return false;
+            *(size_t*)(buf + n) = s2;
             n += sizeof(s2);
-            if (bufsize < n)
-                return false;
-
-            if (!this->counter.save(nullptr, 0, s2))
-                return false;
-
             if (bufsize < n + s2)
                 return false;
+            memcpy(buf + n, membuf.str().c_str(), s2);
+            n += s2;
 
-            bool result = this->counter.save(buf + n, bufsize - n, writed);
-            assert(writed == s2);
-
-            writed += n;
+            writed = n;
             return result;
-        };
+        }
 
         bool load(char* buf, size_t bufsize, size_t& readed) {
             size_t s1 = 0;
-            size_t n = sizeof(s1);
-            if (bufsize < n)
+            size_t n = 0;
+            if (bufsize < n + sizeof(s1))
                 return false;
-
-            s1 = *(size_t*)buf;
+            s1 = *(size_t*)(buf + n);
+            n += sizeof(s1);
             if (bufsize < n + s1)
                 return false;
-
-            if (s1 != 0) {
-                std::string data(buf + n, buf + n + s1);
-                dlib::deserialize(data) >> this->learned_function;
-            }
+            if (!this->counter.load(buf + n, s1, readed))
+                return false;
             n += s1;
 
             size_t s2 = 0;
             if (bufsize < n + sizeof(s2))
                 return false;
-            n += sizeof(s2);
-
             s2 = *(size_t*)(buf + n);
+            n += sizeof(s2);
             if (bufsize < n + s2)
                 return false;
+            if (s2 != 0) {
+                std::vector<char> data(buf + n, buf + n + s2);
+                dlib::deserialize(data) >> this->learned_function;
+                n += s2;
+            }
 
-            bool result = this->counter.load(buf + n, bufsize - n, readed);
-            assert(readed == s2);
-
-            readed += n;
-            return result;
+            readed = n;
+            return true;
         }
 };
 
@@ -208,7 +207,6 @@ std::ostream& operator<<(std::ostream& o, const SentenceSVM<TWord>& s) {
         throw std::runtime_error("serialization failed");
 
     char* buf = new char[n];
-
     if (!s.save(buf, n, n)) {
         delete[] buf;
         throw std::runtime_error("serialization failed");
@@ -222,18 +220,23 @@ std::ostream& operator<<(std::ostream& o, const SentenceSVM<TWord>& s) {
 template<typename TWord>
 std::istream& operator>>(std::istream& input, SentenceSVM<TWord>& s) {
     std::istream_iterator<char> eos;
-    std::vector<char> buf(std::istream_iterator<char>(input), eos);
-    size_t n = buf.size();
+    size_t cur = input.tellg();
+    input.seekg(0, input.end);
+    size_t end = input.tellg();
+    input.seekg(cur, input.beg);
+    size_t n =end - cur; 
 
-    char* bufchar = new char[n];
-    for(size_t i=0;i<buf.size();i++) bufchar[i] = buf[i];
+    char* buf = new char[n];
+    input.read(buf, n);
 
-    if (!s.load(bufchar, n, n)) {
-        delete[] bufchar;
+    if (!s.load(buf, n, n)) {
+        delete[] buf;
         throw std::runtime_error("deserialization failed");
     }
 
-    delete[] bufchar;
+    delete[] buf;
     return input;
 }
 
+
+#endif // _SENTENCE_SVM_2GRAM_HPP_

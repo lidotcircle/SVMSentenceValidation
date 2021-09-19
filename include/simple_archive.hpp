@@ -48,12 +48,15 @@ bool writeToBuf(const std::map<KT,VT>& map, char* buf, size_t bufsize, size_t& w
         size_t n = 0;
         if(!writeToBuf(kv.first, nowrite ? nullptr : buf + i, bufsize - i, n)) {
             return false;
-        };
+        }
         i += n;
+        if(!nowrite && bufsize < i) return false;
+
         if(!writeToBuf(kv.second, nowrite ? nullptr : buf + i, bufsize - i, n)) {
             return false;
         }
         i += n;
+        if(!nowrite && bufsize < i) return false;
     }
 
     writed = i;
@@ -76,10 +79,13 @@ bool readFromBuf(std::map<KT,VT>& map, char* buf, size_t bufsize, size_t& read) 
             return false;
         }
         i += m;
+        if (bufsize < i) return false;
+
         if(!readFromBuf(v, buf + i, bufsize - i, m)) {
             return false;
         }
         i += m;
+        if (bufsize < i) return false;
 
         if(map.find(k) != map.end()) {
             return false;
