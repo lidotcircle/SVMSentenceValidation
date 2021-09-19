@@ -53,14 +53,19 @@ public:
         this->prev.clear();
     }
 
-    size_t savesize() {
+    size_t savesize() const {
         size_t n1 = 0, n2 = 0;
         writeToBuf(this->ngram1, nullptr, 0, n1);
         writeToBuf(this->ngram2, nullptr, 0, n2);
 
         return n1 + n2;
     }
-    bool save(unsigned char* buf, size_t bufsize, size_t& saved) {
+    bool save(char* buf, size_t bufsize, size_t& saved) const {
+        if(buf == nullptr) {
+            saved = this->savesize();
+            return true;
+        }
+
         size_t n1 = 0, n2 = 0;
         if(!writeToBuf(this->ngram1, buf, bufsize, n1)) {
             return false;
@@ -71,7 +76,7 @@ public:
         saved = n1 + n2;
         return true;
     }
-    bool load(unsigned char* buf, size_t bufsize, size_t& read) {
+    bool load(char* buf, size_t bufsize, size_t& read) {
         size_t n1 = 0, n2 = 0;
         if(!readFromBuf(this->ngram1, buf, bufsize, n1)) {
             return false;

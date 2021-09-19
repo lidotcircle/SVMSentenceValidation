@@ -4,6 +4,7 @@ project(SentenceValidation VERSION 0.1.0)
 include("cmake/CPM.cmake")
 include("cmake/dlib.cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Debug)
 
 file(GLOB_RECURSE SentenceValidationLib_SOURCES   CONFIGURE_DEPENDS ./lib/**.cpp)
 file(GLOB_RECURSE SentenceValidationLib_SOURCES_C CONFIGURE_DEPENDS ./lib/**.c)

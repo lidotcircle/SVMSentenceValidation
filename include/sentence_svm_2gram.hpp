@@ -128,11 +128,112 @@ class SentenceSVM {
             return this->learned_function(x);
         }
 
-        bool save(unsigned char* buf, size_t bufsize, size_t& writed) {
-            return false;
+        bool save(char* buf, size_t bufsize, size_t& writed) const {
+            std::ostringstream membuf;
+            dlib::serialize(membuf) << this->learned_function;
+
+            if (buf == nullptr) {
+                this->counter.save(nullptr, 0, writed);
+                writed += membuf.str().size();
+                writed += 2 * sizeof(size_t);
+                return true;
+            }
+
+            size_t s1 = membuf.str().size();
+            size_t n = sizeof(s1);
+            if (bufsize < n) 
+                return false;
+            *(size_t*)buf = s1;
+
+            if (bufsize < n + s1)
+                return false;
+            memcpy(buf + n, membuf.str().c_str(), s1);
+            n += s1;
+
+            size_t s2;
+            n += sizeof(s2);
+            if (bufsize < n)
+                return false;
+
+            if (!this->counter.save(nullptr, 0, s2))
+                return false;
+
+            if (bufsize < n + s2)
+                return false;
+
+            bool result = this->counter.save(buf + n, bufsize - n, writed);
+            assert(writed == s2);
+
+            writed += n;
+            return result;
         };
-        bool load(unsigned char* buf, size_t bufsize, size_t& read) {
-            return false;
+
+        bool load(char* buf, size_t bufsize, size_t& readed) {
+            size_t s1 = 0;
+            size_t n = sizeof(s1);
+            if (bufsize < n)
+                return false;
+
+            s1 = *(size_t*)buf;
+            if (bufsize < n + s1)
+                return false;
+
+            if (s1 != 0) {
+                std::string data(buf + n, buf + n + s1);
+                dlib::deserialize(data) >> this->learned_function;
+            }
+            n += s1;
+
+            size_t s2 = 0;
+            if (bufsize < n + sizeof(s2))
+                return false;
+            n += sizeof(s2);
+
+            s2 = *(size_t*)(buf + n);
+            if (bufsize < n + s2)
+                return false;
+
+            bool result = this->counter.load(buf + n, bufsize - n, readed);
+            assert(readed == s2);
+
+            readed += n;
+            return result;
         }
 };
+
+template<typename TWord>
+std::ostream& operator<<(std::ostream& o, const SentenceSVM<TWord>& s) {
+    size_t n;
+    if (!s.save(nullptr, 0, n))
+        throw std::runtime_error("serialization failed");
+
+    char* buf = new char[n];
+
+    if (!s.save(buf, n, n)) {
+        delete[] buf;
+        throw std::runtime_error("serialization failed");
+    }
+
+    o.write(buf, n);
+    delete[] buf;
+    return o;
+}
+
+template<typename TWord>
+std::istream& operator>>(std::istream& input, SentenceSVM<TWord>& s) {
+    std::istream_iterator<char> eos;
+    std::vector<char> buf(std::istream_iterator<char>(input), eos);
+    size_t n = buf.size();
+
+    char* bufchar = new char[n];
+    for(size_t i=0;i<buf.size();i++) bufchar[i] = buf[i];
+
+    if (!s.load(bufchar, n, n)) {
+        delete[] bufchar;
+        throw std::runtime_error("deserialization failed");
+    }
+
+    delete[] bufchar;
+    return input;
+}
 
