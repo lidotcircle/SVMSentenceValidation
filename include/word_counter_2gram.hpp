@@ -103,8 +103,8 @@ public:
             gram1 += this->ngram1[word];
 
             if (!prev.empty()) {
-                prev.clear();
                 gram2 += this->ngram2[prev[0]][word];
+                prev.clear();
             }
 
             this->prev.push_back(word);
