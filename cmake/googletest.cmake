@@ -1,4 +1,5 @@
 
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 CPMAddPackage(
     NAME googletest
     GITHUB_REPOSITORY google/googletest
