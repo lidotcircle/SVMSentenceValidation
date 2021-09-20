@@ -65,6 +65,7 @@ bool writeToBuf(const std::map<KT,VT>& map, char* buf, size_t bufsize, size_t& w
 
 template<typename KT, typename VT>
 bool readFromBuf(std::map<KT,VT>& map, char* buf, size_t bufsize, size_t& read) {
+    map.clear();
     size_t i = sizeof(size_t);
     if(bufsize < i) {
         return false;
